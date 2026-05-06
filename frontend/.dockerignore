@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.cache/
+.npm/
+.env
+.env.local
+.env.*.local
+.idea/
+.vscode/
+*.md
+coverage/
+.nyc_output/
+.git/
+.gitignore
