@@ -16,6 +16,7 @@ variables:
 
 frontend-build:
   stage: build
+  tags: [docker]
   image: node:20-alpine
   cache:
     key: "$CI_COMMIT_REF_SLUG-npm"
@@ -34,6 +35,7 @@ frontend-build:
 
 backend-build:
   stage: build
+  tags: [docker]
   image: python:3.11-slim
   cache:
     key: "$CI_COMMIT_REF_SLUG-pip"
@@ -51,6 +53,7 @@ backend-build:
 
 frontend-test:
   stage: test
+  tags: [docker]
   image: node:20-alpine
   cache:
     key: "$CI_COMMIT_REF_SLUG-npm"
@@ -71,6 +74,7 @@ frontend-test:
 
 backend-test:
   stage: test
+  tags: [docker]
   image: python:3.11-slim
   cache:
     key: "$CI_COMMIT_REF_SLUG-pip"
@@ -92,6 +96,7 @@ backend-test:
 
 frontend-lint:
   stage: quality
+  tags: [docker]
   image: node:20-alpine
   cache:
     key: "$CI_COMMIT_REF_SLUG-npm"
@@ -107,6 +112,7 @@ frontend-lint:
 
 backend-lint:
   stage: quality
+  tags: [docker]
   image: python:3.11-slim
   before_script:
     - pip install flake8
@@ -120,6 +126,7 @@ backend-lint:
 
 trivy-scan-backend:
   stage: scan
+  tags: [docker]
   image: docker:24
   services:
     - docker:24-dind
@@ -144,6 +151,7 @@ trivy-scan-backend:
 
 trivy-scan-frontend:
   stage: scan
+  tags: [docker]
   image: docker:24
   services:
     - docker:24-dind
@@ -168,6 +176,7 @@ trivy-scan-frontend:
 
 trivy-scan-fs:
   stage: scan
+  tags: [docker]
   image: aquasec/trivy:latest
   script:
     - trivy fs
@@ -183,6 +192,7 @@ trivy-scan-fs:
 
 docker-build-backend:
   stage: docker
+  tags: [docker]
   image: docker:24
   services:
     - docker:24-dind
@@ -197,6 +207,7 @@ docker-build-backend:
 
 docker-build-frontend:
   stage: docker
+  tags: [docker]
   image: docker:24
   services:
     - docker:24-dind
@@ -213,14 +224,21 @@ docker-build-frontend:
 
 deploy-staging:
   stage: deploy
-  image: docker:24
-  services:
-    - docker:24-dind
+  tags: [docker]
+  image: alpine:latest
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$STAGING_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H $STAGING_HOST >> ~/.ssh/known_hosts
   script:
-    - docker compose pull
-    - docker compose up -d --remove-orphans
+    - ssh root@$STAGING_HOST "
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+        docker pull $BACKEND_IMAGE:latest &&
+        docker pull $FRONTEND_IMAGE:latest &&
+        cd /app && docker compose up -d --remove-orphans
+      "
   environment:
     name: staging
     url: http://$STAGING_HOST:3000
@@ -230,14 +248,21 @@ deploy-staging:
 
 deploy-production:
   stage: deploy
-  image: docker:24
-  services:
-    - docker:24-dind
+  tags: [docker]
+  image: alpine:latest
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$PRODUCTION_SSH_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - ssh-keyscan -H $PRODUCTION_HOST >> ~/.ssh/known_hosts
   script:
-    - docker compose pull
-    - docker compose up -d --remove-orphans
+    - ssh root@$PRODUCTION_HOST "
+        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
+        docker pull $BACKEND_IMAGE:latest &&
+        docker pull $FRONTEND_IMAGE:latest &&
+        cd /app && docker compose up -d --remove-orphans
+      "
   environment:
     name: production
     url: http://$PRODUCTION_HOST:3000
