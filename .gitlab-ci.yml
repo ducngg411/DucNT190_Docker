@@ -170,7 +170,9 @@ trivy-scan-frontend:
 trivy-scan-fs:
   stage: scan
   tags: [docker]
-  image: aquasec/trivy:latest
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
   script:
     - trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table .
   needs:
@@ -252,8 +254,7 @@ deploy-production:
         docker pull $BACKEND_IMAGE:latest &&
         docker pull $FRONTEND_IMAGE:latest &&
         cd /app &&
-        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE PRODUCTION_HOST=$PRODUCTION_HOST
-        docker compose -f docker-compose.prod.yml up -d --remove-orphans
+        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE PRODUCTION_HOST=$PRODUCTION_HOST docker compose -f docker-compose.prod.yml up -d --remove-orphans
       "
   environment:
     name: production
