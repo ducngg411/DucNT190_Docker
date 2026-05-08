@@ -139,11 +139,7 @@ trivy-scan-backend:
     - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
   script:
     - docker build -t backend-scan:$CI_COMMIT_SHORT_SHA ./backend
-    - trivy image
-        --exit-code 0
-        --severity HIGH,CRITICAL
-        --format table
-        backend-scan:$CI_COMMIT_SHORT_SHA
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL --format table backend-scan:$CI_COMMIT_SHORT_SHA
   cache:
     paths:
       - .trivycache/
@@ -164,11 +160,7 @@ trivy-scan-frontend:
     - curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
   script:
     - docker build -t frontend-scan:$CI_COMMIT_SHORT_SHA ./frontend
-    - trivy image
-        --exit-code 0
-        --severity HIGH,CRITICAL
-        --format table
-        frontend-scan:$CI_COMMIT_SHORT_SHA
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL --format table frontend-scan:$CI_COMMIT_SHORT_SHA
   cache:
     paths:
       - .trivycache/
@@ -180,11 +172,7 @@ trivy-scan-fs:
   tags: [docker]
   image: aquasec/trivy:latest
   script:
-    - trivy fs
-        --exit-code 0
-        --severity HIGH,CRITICAL
-        --format table
-        .
+    - trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table .
   needs:
     - frontend-build
     - backend-build
@@ -258,11 +246,14 @@ deploy-production:
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - ssh-keyscan -H $PRODUCTION_HOST >> ~/.ssh/known_hosts
   script:
-    - ssh root@$PRODUCTION_HOST "
+    - scp -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@$PRODUCTION_HOST:/app/docker-compose.prod.yml
+    - ssh ubuntu@$PRODUCTION_HOST "
         docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
         docker pull $BACKEND_IMAGE:latest &&
         docker pull $FRONTEND_IMAGE:latest &&
-        cd /app && docker compose up -d --remove-orphans
+        cd /app &&
+        BACKEND_IMAGE=$BACKEND_IMAGE FRONTEND_IMAGE=$FRONTEND_IMAGE PRODUCTION_HOST=$PRODUCTION_HOST
+        docker compose -f docker-compose.prod.yml up -d --remove-orphans
       "
   environment:
     name: production
