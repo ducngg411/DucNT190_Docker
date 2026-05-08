@@ -43,6 +43,7 @@ backend-build:
       - .pip_cache/
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip_cache"
+    DATABASE_URL: "sqlite:///./test.db"
   before_script:
     - cd backend
     - pip install --cache-dir $PIP_CACHE_DIR -r requirements.txt
