@@ -25,6 +25,12 @@ body {
   font-size: 1.5rem;
 }
 
+.app-author {
+  font-size: 0.875rem;
+  opacity: 0.85;
+  margin-top: 0.25rem;
+}
+
 .app-main {
   padding: 2rem;
   max-width: 900px;
