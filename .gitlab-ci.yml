@@ -2,6 +2,7 @@ stages:
   - build
   - test
   - quality
+  - sonarqube
   - scan
   - docker
   - deploy
@@ -123,6 +124,32 @@ backend-lint:
   needs:
     - backend-build
 
+# ─── SONARQUBE ─────────────────────────────────────────────────────────────────
+
+sonarqube-scan:
+  stage: sonarqube
+  tags: [docker]
+  image:
+    name: sonarsource/sonar-scanner-cli:11
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    policy: pull-push
+    key: "sonar-cache-$CI_COMMIT_REF_SLUG"
+    paths:
+      - "${SONAR_USER_HOME}/cache"
+  script:
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}"
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'main'
+    - if: $CI_COMMIT_BRANCH == 'develop'
+  needs:
+    - frontend-test
+    - backend-test
+
 # ─── SCAN (TRIVY) ──────────────────────────────────────────────────────────────
 
 trivy-scan-backend:
@@ -205,7 +232,7 @@ docker-build-frontend:
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $FRONTEND_IMAGE:$CI_COMMIT_SHA -t $FRONTEND_IMAGE:latest ./frontend
+    - docker build --build-arg VITE_API_BASE_URL=http://$PRODUCTION_HOST:8000 -t $FRONTEND_IMAGE:$CI_COMMIT_SHA -t $FRONTEND_IMAGE:latest ./frontend
     - docker push $FRONTEND_IMAGE:$CI_COMMIT_SHA
     - docker push $FRONTEND_IMAGE:latest
   rules:
